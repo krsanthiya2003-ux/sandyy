@@ -1,3 +1,4 @@
+//src/pages/Profile.jsx
 import React, { useState } from "react";
 
 function Profile() {
