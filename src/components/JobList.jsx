@@ -1,130 +1,120 @@
-//src/components/JobList.jsx
-
+// src/components/JobList.jsx
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-const API = "http://localhost:5000/api/jobs";
 
 function JobList() {
-  const formRef = useRef(null);
-  const msgRef = useRef(null);
-
   const [jobs, setJobs] = useState([]);
-  const [appliedJobs, setAppliedJobs] = useState([]);
-  const [mailMsg, setMailMsg] = useState("");
+  const user = JSON.parse(localStorage.getItem("user"));
+  
+  // Employer State
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [resume, setResume] = useState(null);
+  const [skillsReq, setSkillsReq] = useState(""); // New State
 
-  // FETCH JOBS FROM DATABASE
-  useEffect(() => {
-    fetchJobs();
-  }, []);
+  // Seeker Apply State
+  const [showApplyForm, setShowApplyForm] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [resume, setResume] = useState(null);
+  const applyFormRef = useRef(null);
+
+  useEffect(() => { fetchJobs(); }, []);
 
   const fetchJobs = async () => {
-  try {
-    const res = await axios.get(API);
+    const res = await axios.get("http://localhost:5000/api/jobs");
     setJobs(res.data);
-  } catch (err) {
-    console.error(err);
-  }
-};
+  };
 
-const addJob = async () => {
-  if (!title || !company) {
-    alert("Please fill all fields");
-    return;
-  }
+  const handleAddJob = async () => {
+    if (!title || !company || !skillsReq) return alert("Please fill all fields, including skills!");
+    await axios.post("http://localhost:5000/api/jobs", { 
+      title, 
+      company, 
+      skillsRequired: skillsReq 
+    });
+    fetchJobs();
+    setTitle(""); setCompany(""); setSkillsReq("");
+    alert("Job Posted Successfully! ✅");
+  };
 
-  try {
-    const res = await axios.post(API, { title, company });
-    setJobs([...jobs, res.data]);
-    setTitle("");
-    setCompany("");
-  } catch (err) {
-    console.error(err.response?.data);
-    alert("Error adding job");
-  }
-};
-
-
-  const openApplyForm = (job) => {
+  const handleApplyClick = (job) => {
     setSelectedJob(job);
-    setShowForm(true);
-    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setShowApplyForm(true);
+    setTimeout(() => applyFormRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
   const submitApplication = () => {
-    if (!name || !email || !phone || !resume) {
-      alert("Please fill all details and upload resume");
-      return;
-    }
-    setAppliedJobs([...appliedJobs, selectedJob._id]);
-    setMailMsg(`✅ Application submitted successfully for ${selectedJob.title}`);
-    setShowForm(false);
-    setTimeout(() => msgRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    setName(""); setEmail(""); setPhone(""); setResume(null);
-    setTimeout(() => setMailMsg(""), 3000);
+    if (!resume) return alert("Please upload your resume!");
+    // In a real app, you'd use FormData to send the file to the backend
+    alert(`Application submitted for ${selectedJob.title} using ID: ${user.userId} ✅`);
+    setShowApplyForm(false);
+    setResume(null);
   };
 
   return (
-    <div style={page}>
-      <h1>Explore Fresher-Friendly Jobs</h1>
-      <div style={formBox}>
-        <h3>Add New Job</h3>
-        <input placeholder="Job Title" value={title} onChange={(e) => setTitle(e.target.value)} style={input} />
-        <input placeholder="Company Name" value={company} onChange={(e) => setCompany(e.target.value)} style={input} />
-        <button onClick={addJob} style={addBtn}>Add Job</button>
-      </div>
+    <div style={masterWrapper}>
+      <div style={contentWidth}>
+        <h1 style={{ color: "white" }}>Smart Job Portal</h1>
 
-      <p>✅ Applied Jobs: {appliedJobs.length}</p>
-      {mailMsg && <div ref={msgRef} style={mailBox}>{mailMsg}</div>}
+        {/* EMPLOYER SECTION */}
+        {user?.role === "employer" && (
+          <div style={addBox}>
+            <h3 style={{marginTop: 0, color: "#2e7d32"}}>Post a New Job</h3>
+            <input style={input} placeholder="Job Title" value={title} onChange={(e)=>setTitle(e.target.value)} />
+            <input style={input} placeholder="Company Name" value={company} onChange={(e)=>setCompany(e.target.value)} />
+            <input style={input} placeholder="Skills Required (e.g. React, Java)" value={skillsReq} onChange={(e)=>setSkillsReq(e.target.value)} />
+            <button style={postBtn} onClick={handleAddJob}>Post Job</button>
+          </div>
+        )}
 
-      <div style={jobContainer}>
-        {jobs.map((job) => {
-          const isApplied = appliedJobs.includes(job._id);
-          return (
-            <div key={job._id} style={card}>
-              <h3>{job.title}</h3>
-              <p>{job.company}</p>
-              <button
-                disabled={isApplied}
-                onClick={() => openApplyForm(job)}
-                style={{ ...btn, backgroundColor: isApplied ? "#9ca3af" : "#2563eb" }}
-              >
-                {isApplied ? "Applied ✅" : "Apply Now"}
-              </button>
+        {/* JOB LISTINGS */}
+        <div style={jobGrid}>
+          {jobs.map(job => (
+            <div key={job._id} style={jobCard}>
+              <span style={idTag}>Job ID: {job._id.slice(-4)}</span>
+              <h3 style={{margin: "10px 0 5px 0"}}>{job.title}</h3>
+              <p style={{margin: "0 0 10px 0", color: "#666"}}>🏢 {job.company}</p>
+              <div style={skillBadge}>Skills: {job.skillsRequired}</div>
+              
+              {user?.role === "seeker" && (
+                <button style={applyBtn} onClick={() => handleApplyClick(job)}>Apply Now</button>
+              )}
             </div>
-          );
-        })}
-      </div>
-
-      {showForm && selectedJob && (
-        <div ref={formRef} style={applyForm}>
-          <h3>Apply for {selectedJob.title}</h3>
-          <input placeholder="Your Name" value={name} onChange={(e) => setName(e.target.value)} style={input} />
-          <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={input} />
-          <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} style={input} />
-          <input type="file" onChange={(e) => setResume(e.target.files[0])} style={input} />
-          <button onClick={submitApplication} style={addBtn}>Submit Application</button>
+          ))}
         </div>
-      )}
+
+        {/* SEEKER APPLICATION FORM */}
+        {showApplyForm && (
+          <div ref={applyFormRef} style={applyOverlay}>
+            <div style={applyModal}>
+              <h3>Applying for: {selectedJob?.title}</h3>
+              <p>Your Unique ID: <b>{user?.userId}</b></p>
+              <label>Upload Resume (PDF/Doc):</label>
+              <input type="file" style={input} onChange={(e) => setResume(e.target.files[0])} />
+              <div style={{display: "flex", gap: "10px", marginTop: "15px"}}>
+                <button style={postBtn} onClick={submitApplication}>Submit</button>
+                <button style={cancelBtn} onClick={() => setShowApplyForm(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-const page = { width: "1400px", margin: "auto", padding: "40px", textAlign: "center" };
-const formBox = { background: "cyan", padding: "20px", width: "300px", margin: "20px auto", borderRadius: "10px" };
-const input = { width: "90%", padding: "8px", margin: "6px 0" };
-const addBtn = { padding: "8px 16px", background: "green", color: "white", border: "none", cursor: "pointer", marginTop: "10px" };
-const jobContainer = { display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "20px", marginTop: "30px" };
-const card = { backgroundColor: "lightpink", width: "260px", padding: "20px", borderRadius: "10px" };
-const btn = { padding: "10px 16px", border: "none", color: "white", cursor: "pointer" };
-const mailBox = { margin: "20px auto", padding: "12px 18px", backgroundColor: "#d1fae5", color: "#065f46", fontWeight: "bold", borderRadius: "8px" };
-const applyForm = { background: "#fff", padding: "20px", width: "320px", margin: "40px auto", borderRadius: "10px", boxShadow: "0 4px 10px rgba(0,0,0,0.2)" };
+/* ===== STYLES ===== */
+const masterWrapper = { width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "40px 0", backgroundColor: "#1a1a1a" };
+const contentWidth = { width: "90%", maxWidth: "1100px", textAlign: "center" };
+const addBox = { background: "#e8f5e9", padding: "25px", borderRadius: "12px", marginBottom: "40px", display: "inline-block", minWidth: "450px", border: "2px solid #2e7d32" };
+const input = { padding: "12px", margin: "5px", borderRadius: "8px", border: "1px solid #ccc", width: "90%" };
+const postBtn = { padding: "12px 25px", background: "#2e7d32", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" };
+const cancelBtn = { padding: "12px 25px", background: "#666", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" };
+const jobGrid = { display: "flex", flexWrap: "wrap", gap: "20px", justifyContent: "center" };
+const jobCard = { background: "#fff", padding: "20px", borderRadius: "15px", width: "280px", textAlign: "left", boxShadow: "0 10px 20px rgba(0,0,0,0.2)", position: "relative" };
+const idTag = { fontSize: "10px", color: "#999", fontWeight: "bold" };
+const skillBadge = { background: "#fff3e0", color: "#e65100", padding: "5px 10px", borderRadius: "5px", fontSize: "12px", fontWeight: "bold", marginBottom: "15px" };
+const applyBtn = { width: "100%", padding: "12px", background: "#1976d2", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" };
+const applyOverlay = { marginTop: "40px", padding: "20px", background: "#fff", borderRadius: "15px", boxShadow: "0 0 20px rgba(255,255,255,0.1)" };
+const applyModal = { maxWidth: "500px", margin: "0 auto", textAlign: "left" };
 
 export default JobList;
